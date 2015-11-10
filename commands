@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+
+[[ " nginx:conf.d:add nginx:conf.d:remove nginx:conf.d:print help nginx:conf.d:help " == *" $1 "* ]] || exit $DOKKU_NOT_IMPLEMENTED_EXIT
+set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+source "$PLUGIN_CORE_AVAILABLE_PATH/nginx-vhosts/functions"
+
+is_stdin_import() {
+  [[ -t 0 ]] && return 1
+  return 0
+}
+
+is_nginx_test_passed() {
+  set +e
+  sudo /usr/sbin/nginx -t > /dev/null 2>&1
+  exit_code=$?
+
+  if [[ "$exit_code" -ne "0" ]]; then
+    sudo /usr/sbin/nginx -t
+  fi
+
+  set -e
+
+  return $exit_code
+}
+
+confd_file_set() {
+  [[ -z $2 ]] && dokku_log_fail "Please specify an app to run the command on"
+  verify_app_name "$2"
+  [[ -z $3 ]] && dokku_log_fail "Please specify a filename to add"
+  APP="$2"; CONFD_FILE="$3"
+
+  is_stdin_import || dokku_log_fail "File content expected on stdin"
+
+  dokku_log_info1 "Adding nginx.conf.d/$CONFD_FILE"
+  cat <&0 > "$DOKKU_ROOT/$APP/nginx.conf.d/$CONFD_FILE"
+
+  dokku_log_verbose "Validating new nginx configuration"
+  if is_nginx_test_passed; then
+    dokku_log_verbose "Reloading nginx"
+    restart_nginx
+  else
+    dokku_log_info1 "The added nginx.conf.d/$CONFD_FILE causes nginx to fail configuration tests, rolling back"
+    rm "$DOKKU_ROOT/$APP/nginx.conf.d/$CONFD_FILE"
+  fi
+}
+
+confd_file_unset() {
+  [[ -z $2 ]] && dokku_log_fail "Please specify an app to run the command on"
+  verify_app_name "$2"
+  [[ -z $3 ]] && dokku_log_fail "Please specify a filename to remove"
+  APP="$2"; CONFD_FILE="$3"
+
+  [[ -f "$DOKKU_ROOT/$APP/nginx.conf.d/$CONFD_FILE" ]] || dokku_log_fail "File $CONFD_FILE expected in nginx.conf.d"
+
+  dokku_log_info1 "Removing nginx.conf.d/$CONFD_FILE"
+
+  TEMP_DIR=$(mktemp -d)
+  mv "$DOKKU_ROOT/$APP/nginx.conf.d/$CONFD_FILE" $TEMP_DIR
+
+  dokku_log_verbose "Validating new nginx configuration"
+  if is_nginx_test_passed; then
+    dokku_log_verbose "Reloading nginx"
+    restart_nginx
+  else
+    dokku_log_info1 "The removed nginx.conf.d/$CONFD_FILE causes nginx to fail configuration tests, rolling back"
+    mv "$TEMP_DIR/$CONFD_FILE" "$DOKKU_ROOT/$APP/nginx.conf.d/"
+  fi
+
+  rm -rf $TEMP_DIR
+}
+
+confd_files_print() {
+  [[ -z $2 ]] && dokku_log_fail "Please specify an app to run the command on"
+  verify_app_name "$2"
+  APP="$2"
+
+  find "$DOKKU_ROOT/$APP/nginx.conf.d/" -type f -exec echo \; -exec echo -n "=====> Printing " \; -exec basename {} \; -exec cat \{\} \;
+}
+
+case "$1" in
+  nginx:conf.d:add)
+    confd_file_set "$@"
+    ;;
+
+  nginx:conf.d:remove)
+    confd_file_unset "$@"
+    ;;
+
+  nginx:conf.d:print)
+    confd_files_print "$@"
+    ;;
+
+  help | nginx:conf.d:help)
+    cat && cat<<EOF
+    nginx:conf.d:add <app> <filename>, Import a file from stdin to nginx.conf.d for an application (nginx will include the file if its filename matches *.conf pattern)
+    nginx:conf.d:remove <app> <filename>, Remove a file in nginx.conf.d for an application
+    nginx:conf.d:print <app>, Print all files in nginx.conf.d for an application
+EOF
+    ;;
+
+  *)
+    exit $DOKKU_NOT_IMPLEMENTED_EXIT
+    ;;
+
+esac
