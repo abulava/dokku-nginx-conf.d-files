@@ -9,6 +9,19 @@ Simple management of files in nginx.conf.d directory for an application. Nginx w
 dokku plugin:install https://github.com/abulava/dokku-nginx-conf.d-files.git
 ```
 
+## Usage
+
+```sh
+# Print all files in nginx.conf.d for an application
+dokku nginx:conf.d:print <app>
+
+# Import a file from stdin to nginx.conf.d for an application
+dokku nginx:conf.d:add <app> <filename>
+
+# Remove a file in nginx.conf.d for an application
+dokku nginx:conf.d:remove <app> <filename>
+```
+
 ## License
 
 This plugin is released under the MIT license. See the file [LICENSE](LICENSE).
