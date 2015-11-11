@@ -32,6 +32,11 @@ confd_file_set() {
 
   is_stdin_import || dokku_log_fail "File content expected on stdin"
 
+  # make sure that app-specific nginx.conf include directory exists
+  if [ ! -d "$DOKKU_ROOT/$APP/nginx.conf.d/" ]; then
+    mkdir "$DOKKU_ROOT/$APP/nginx.conf.d/"
+  fi
+
   dokku_log_info1 "Adding nginx.conf.d/$CONFD_FILE"
   cat <&0 > "$DOKKU_ROOT/$APP/nginx.conf.d/$CONFD_FILE"
 
