@@ -1,4 +1,4 @@
 [plugin]
 description = "Manage application specific files in nginx.conf.d"
-version = "0.4.0"
+version = "0.4.1"
 [plugin.config]

@@ -97,11 +97,14 @@ case "$1" in
     ;;
 
   help | nginx:conf.d:help)
-    cat && cat<<EOF
+    help_content() {
+      cat<<EOF
     nginx:conf.d:add <app> <filename>, Import a file from stdin to nginx.conf.d for an application (nginx will include the file if its filename matches *.conf pattern)
     nginx:conf.d:remove <app> <filename>, Remove a file in nginx.conf.d for an application
     nginx:conf.d:print <app>, Print all files in nginx.conf.d for an application
 EOF
+    }
+    help_content
     ;;
 
   *)
